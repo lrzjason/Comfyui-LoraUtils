@@ -156,20 +156,15 @@ class MergeLoraToModel:
     DESCRIPTION = "Apply a pre-loaded LoRA to diffusion and CLIP models. This allows separation of loading and applying LoRAs."
 
     def apply_lora(self, model, lora, strength_model, clip=None, strength_clip=1.0):
+        # Both model and clip are provided
         if clip is None:
-            # If no clip is provided, only apply LoRA to the model
-            # We'll use the same model as a dummy for the clip parameter and set strength_clip to 0
-            # This way, only the model will be affected by the LoRA
-            model_lora, _ = comfy.sd.load_lora_for_models(model, model, lora, strength_model, 0)
-            # Return the modified model and the original model as a placeholder for the clip
-            return (model_lora, model)
-        else:
-            # Both model and clip are provided
-            if strength_model == 0 and strength_clip == 0:
-                return (model, clip)
+            strength_clip = 0
+        
+        if strength_model == 0 and strength_clip == 0:
+            return (model, clip)
 
-            model_lora, clip_lora = comfy.sd.load_lora_for_models(model, clip, lora, strength_model, strength_clip)
-            return (model_lora, clip_lora)
+        model_lora, clip_lora = comfy.sd.load_lora_for_models(model, clip, lora, strength_model, strength_clip)
+        return (model_lora, clip_lora)
 
 
 class LoraStatViewer:
