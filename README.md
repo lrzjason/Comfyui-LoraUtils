@@ -101,6 +101,29 @@ This node provides detailed information about a LoRA file's structure to help us
 - Displays the complete list of all keys in the LoRA for reference
 - Helps users craft precise regex patterns for LoraLayersOperation
 
+### Save LoRA
+
+This node saves a modified LoRA state dictionary to a safetensors file. It allows users to persist their LoRA modifications for later use.
+
+#### Inputs
+
+- **lora**: The modified LoRA state dictionary to save
+- **filename**: The filename to save the LoRA as (e.g. my_lora.safetensors)
+- **output_dir** (optional): Directory to save the LoRA to. Defaults to ComfyUI output directory if not provided.
+
+#### Outputs
+
+- None (this is an output node that performs file saving)
+
+#### Behavior
+
+- Saves the LoRA to the specified filename in safetensors format
+- Will overwrite existing files if they have the same name
+- Automatically adds .safetensors extension if not present
+- Saves to the ComfyUI output directory by default
+- Optionally accepts a custom output directory
+- Provides feedback message confirming the save location
+
 ## Key Features
 
 - **Separation of Concerns**: Load, modify, and apply LoRAs in separate steps for maximum flexibility
