@@ -1,8 +1,8 @@
 {
   "id": "00000000-0000-0000-0000-000000000000",
   "revision": 0,
-  "last_node_id": 9,
-  "last_link_id": 7,
+  "last_node_id": 10,
+  "last_link_id": 8,
   "nodes": [
     {
       "id": 1,
@@ -41,82 +41,13 @@
         }
       ],
       "properties": {
-        "aux_id": "lrzjason/Comfyui-LoraUtils",
+        "cnr_id": "lorautils",
         "ver": "f6db1368facc26d491f90015d620f7b2b8e0c9f9",
-        "Node name for S&R": "LoadLoraOnly"
+        "Node name for S&R": "LoadLoraOnly",
+        "aux_id": "lrzjason/Comfyui-LoraUtils"
       },
       "widgets_values": [
         "qwen\\handpick_json-19-24800.safetensors"
-      ]
-    },
-    {
-      "id": 2,
-      "type": "LoraLayersOperation",
-      "pos": [
-        530.5599365234375,
-        232.9199981689453
-      ],
-      "size": [
-        410.79998779296875,
-        142.79998779296875
-      ],
-      "flags": {},
-      "order": 2,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "lora",
-          "name": "lora",
-          "type": "LORA",
-          "link": 1
-        },
-        {
-          "localized_name": "layer_pattern",
-          "name": "layer_pattern",
-          "type": "STRING",
-          "widget": {
-            "name": "layer_pattern"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "layer_indices",
-          "name": "layer_indices",
-          "type": "STRING",
-          "widget": {
-            "name": "layer_indices"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "scale_factor",
-          "name": "scale_factor",
-          "type": "FLOAT",
-          "widget": {
-            "name": "scale_factor"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "modified_lora",
-          "name": "modified_lora",
-          "type": "LORA",
-          "links": [
-            2
-          ]
-        }
-      ],
-      "properties": {
-        "aux_id": "lrzjason/Comfyui-LoraUtils",
-        "ver": "f6db1368facc26d491f90015d620f7b2b8e0c9f9",
-        "Node name for S&R": "LoraLayersOperation"
-      },
-      "widgets_values": [
-        ".*transformer_blocks\\.(\\d+)\\.",
-        "49,50-59",
-        0
       ]
     },
     {
@@ -185,7 +116,7 @@
         122
       ],
       "flags": {},
-      "order": 4,
+      "order": 5,
       "mode": 0,
       "inputs": [
         {
@@ -244,9 +175,10 @@
         }
       ],
       "properties": {
-        "aux_id": "lrzjason/Comfyui-LoraUtils",
+        "cnr_id": "lorautils",
         "ver": "f6db1368facc26d491f90015d620f7b2b8e0c9f9",
-        "Node name for S&R": "MergeLoraToModel"
+        "Node name for S&R": "MergeLoraToModel",
+        "aux_id": "lrzjason/Comfyui-LoraUtils"
       },
       "widgets_values": [
         1,
@@ -265,7 +197,7 @@
         262
       ],
       "flags": {},
-      "order": 6,
+      "order": 7,
       "mode": 0,
       "inputs": [
         {
@@ -382,7 +314,7 @@
         26
       ],
       "flags": {},
-      "order": 3,
+      "order": 4,
       "mode": 0,
       "inputs": [
         {
@@ -403,10 +335,12 @@
         }
       ],
       "properties": {
-        "aux_id": "lrzjason/Comfyui-LoraUtils",
+        "cnr_id": "lorautils",
         "ver": "f6db1368facc26d491f90015d620f7b2b8e0c9f9",
-        "Node name for S&R": "LoraStatViewer"
-      }
+        "Node name for S&R": "LoraStatViewer",
+        "aux_id": "lrzjason/Comfyui-LoraUtils"
+      },
+      "widgets_values": []
     },
     {
       "id": 9,
@@ -420,7 +354,7 @@
         361.7536315917969
       ],
       "flags": {},
-      "order": 5,
+      "order": 6,
       "mode": 0,
       "inputs": [
         {
@@ -437,6 +371,130 @@
         "Node name for S&R": "PreviewAny"
       },
       "widgets_values": []
+    },
+    {
+      "id": 10,
+      "type": "SaveLora",
+      "pos": [
+        997.5963134765625,
+        420.1533203125
+      ],
+      "size": [
+        270,
+        82
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "lora",
+          "name": "lora",
+          "type": "LORA",
+          "link": 8
+        },
+        {
+          "localized_name": "filename",
+          "name": "filename",
+          "type": "STRING",
+          "widget": {
+            "name": "filename"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "output_dir",
+          "name": "output_dir",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "output_dir"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "lorautils",
+        "ver": "f6db1368facc26d491f90015d620f7b2b8e0c9f9",
+        "Node name for S&R": "SaveLora"
+      },
+      "widgets_values": [
+        "my_lora.safetensors",
+        "D:\\ComfyUI\\output"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "LoraLayersOperation",
+      "pos": [
+        530.5599365234375,
+        232.9199981689453
+      ],
+      "size": [
+        410.79998779296875,
+        142.79998779296875
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "lora",
+          "name": "lora",
+          "type": "LORA",
+          "link": 1
+        },
+        {
+          "localized_name": "layer_pattern",
+          "name": "layer_pattern",
+          "type": "STRING",
+          "widget": {
+            "name": "layer_pattern"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "layer_indices",
+          "name": "layer_indices",
+          "type": "STRING",
+          "widget": {
+            "name": "layer_indices"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "scale_factor",
+          "name": "scale_factor",
+          "type": "FLOAT",
+          "widget": {
+            "name": "scale_factor"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "modified_lora",
+          "name": "modified_lora",
+          "type": "LORA",
+          "links": [
+            2,
+            8
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "lorautils",
+        "ver": "f6db1368facc26d491f90015d620f7b2b8e0c9f9",
+        "Node name for S&R": "LoraLayersOperation",
+        "aux_id": "lrzjason/Comfyui-LoraUtils"
+      },
+      "widgets_values": [
+        ".*transformer_blocks\\.(\\d+)\\.",
+        "49,50-59",
+        0
+      ]
     }
   ],
   "links": [
@@ -487,6 +545,14 @@
       9,
       0,
       "*"
+    ],
+    [
+      8,
+      2,
+      0,
+      10,
+      0,
+      "LORA"
     ]
   ],
   "groups": [],
@@ -495,8 +561,8 @@
     "ds": {
       "scale": 0.8264462809917354,
       "offset": [
-        -36.565913663747956,
-        -26.032042576688617
+        -69.09071957195097,
+        70.76799434958096
       ]
     }
   },
