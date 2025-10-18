@@ -4,6 +4,9 @@ import comfy.sd
 import folder_paths
 import torch
 import re
+import os
+import time
+from safetensors.torch import save_file
 
 
 class LoadLoraOnly:
@@ -244,11 +247,54 @@ class LoraStatViewer:
         return (output_string,)
 
 
+class SaveLora:
+    def __init__(self):
+        self.output_dir = folder_paths.get_output_directory()
+
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "lora": ("LORA", {"tooltip": "The modified LoRA state dictionary to save."}),
+                "filename": ("STRING", {"default": "my_lora.safetensors", "tooltip": "Filename to save the LoRA as (e.g. my_lora.safetensors)."}),                
+            },
+            "optional": {
+                "output_dir": ("STRING", {"default": folder_paths.get_output_directory(), "tooltip": "Directory to save the LoRA to. Defaults to ComfyUI output directory if not provided."}),
+            }
+        }
+
+    RETURN_TYPES = ()
+    FUNCTION = "save_lora"
+    OUTPUT_NODE = True
+    CATEGORY = "LoraUtils"
+
+    def save_lora(self, lora, filename, output_dir=None):
+        if output_dir is None:
+            output_dir = self.output_dir
+            
+        # Ensure the directory exists
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Create the full path
+        full_output_path = os.path.join(output_dir, filename)
+        
+        # Add .safetensors extension if not present
+        if not full_output_path.lower().endswith('.safetensors'):
+            full_output_path += '.safetensors'
+        
+        # Save the lora state dict as safetensors (this will overwrite if file exists)
+        save_file(lora, full_output_path)
+        
+        print(f"LoRA saved to: {full_output_path}")
+        return {}
+
+
 NODE_CLASS_MAPPINGS = {
     "LoadLoraOnly": LoadLoraOnly,
     "LoraLayersOperation": LoraLayersOperation,
     "MergeLoraToModel": MergeLoraToModel,
     "LoraStatViewer": LoraStatViewer,
+    "SaveLora": SaveLora,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -256,4 +302,5 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "LoraLayersOperation": "LoRA Layers Operation",
     "MergeLoraToModel": "Merge LoRA to Model",
     "LoraStatViewer": "LoRA Stat Viewer",
+    "SaveLora": "Save LoRA",
 }
