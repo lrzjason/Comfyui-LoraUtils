@@ -67,9 +67,16 @@ class LoraLayersOperation:
         # Parse layer indices from string, supporting ranges like "50-53" and comma-separated list
         def parse_indices(indices_str):
             indices = []
+            if indices_str.strip() == "":
+                return []
             parts = indices_str.split(",")
             for part in parts:
                 part = part.strip()
+                
+                # skip empty parts
+                if not part:
+                    continue
+                
                 if "-" in part:
                     # Handle range notation like "50-53"
                     try:
@@ -105,6 +112,10 @@ class LoraLayersOperation:
         for key, value in lora.items():
             modified_lora[key] = value.clone()  # Clone tensors to avoid modifying original
 
+        # check if layer index is empty, return original lora
+        if not layer_indices_list:
+            return (modified_lora,)
+        
         for key in modified_lora:
             match = pattern.search(key)
             if match:
