@@ -267,19 +267,26 @@ class LoraAdd:
     RETURN_NAMES = ("merged_lora",)
     FUNCTION = "add_lora"
     CATEGORY = "LoraUtils"
+    DESCRIPTION = "Combine two LoRAs by adding their tensor values together. This node adds matching keys from both LoRAs, and includes all unique keys from both LoRAs in the result."
 
     def add_lora(self, loraA, loraB):
-        loraA.keys()
+        # Create a copy of loraA to avoid modifying the original
+        merged_lora = {}
         
-        temp = {}
-        
+        # Add all keys from loraA
         for key in loraA.keys():
-            temp[key] = loraA[key]
-            if key in loraB:
-                temp[key] += loraB[key]
+            merged_lora[key] = loraA[key].clone()  # Clone to avoid modifying original
         
-        print(temp)
-        return (temp, )
+        # Add all keys from loraB, adding to existing keys or creating new ones
+        for key in loraB.keys():
+            if key in merged_lora:
+                # If key exists in both, add the tensors together
+                merged_lora[key] = merged_lora[key] + loraB[key]
+            else:
+                # If key only exists in loraB, add it to the merged result
+                merged_lora[key] = loraB[key].clone()  # Clone to avoid modifying original
+        
+        return (merged_lora, )
 
 class SaveLora:
     def __init__(self):

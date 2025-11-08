@@ -140,9 +140,9 @@ This node combines two loaded LoRAs by adding their tensor values together. It a
 #### Behavior
 
 - Adds the tensor values of matching keys from both LoRAs together
-- Preserves all keys from the first LoRA (loraA)
-- Adds tensor values from the second LoRA (loraB) to matching keys in loraA
-- If a key exists in loraB but not in loraA, adds that key to the result
+- Preserves all keys from both input LoRAs in the result
+- For keys that exist in both LoRAs, adds the tensor values together
+- For keys that exist in only one LoRA, includes them unchanged in the result
 - Creates a new LoRA that contains the combined strengths of both input LoRAs
 - Useful for combining complementary LoRAs or layering different effects
 
