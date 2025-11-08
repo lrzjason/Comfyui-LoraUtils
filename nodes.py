@@ -253,6 +253,34 @@ class LoraStatViewer:
         return (output_string,)
 
 
+class LoraAdd:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "loraA": ("LORA", {"tooltip": "Lora A to add."}),
+                "loraB": ("LORA", {"tooltip": "Lora B to add."}),
+            }
+        }
+
+    RETURN_TYPES = ("LORA",)
+    RETURN_NAMES = ("merged_lora",)
+    FUNCTION = "add_lora"
+    CATEGORY = "LoraUtils"
+
+    def add_lora(self, loraA, loraB):
+        loraA.keys()
+        
+        temp = {}
+        
+        for key in loraA.keys():
+            temp[key] = loraA[key]
+            if key in loraB:
+                temp[key] += loraB[key]
+        
+        print(temp)
+        return (temp, )
+
 class SaveLora:
     def __init__(self):
         self.output_dir = folder_paths.get_output_directory()
@@ -301,6 +329,7 @@ NODE_CLASS_MAPPINGS = {
     "MergeLoraToModel": MergeLoraToModel,
     "LoraStatViewer": LoraStatViewer,
     "SaveLora": SaveLora,
+    "LoraAdd": LoraAdd,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -309,4 +338,5 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "MergeLoraToModel": "Merge LoRA to Model",
     "LoraStatViewer": "LoRA Stat Viewer",
     "SaveLora": "Save LoRA",
+    "LoraAdd": "Lora Add",
 }

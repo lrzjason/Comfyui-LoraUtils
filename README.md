@@ -124,6 +124,28 @@ This node saves a modified LoRA state dictionary to a safetensors file. It allow
 - Optionally accepts a custom output directory
 - Provides feedback message confirming the save location
 
+### Lora Add
+
+This node combines two loaded LoRAs by adding their tensor values together. It allows users to merge the effects of two different LoRAs into a single LoRA for application to models.
+
+#### Inputs
+
+- **loraA**: The first LoRA state dictionary to add
+- **loraB**: The second LoRA state dictionary to add
+
+#### Outputs
+
+- **merged_lora**: A new LoRA state dictionary containing the combined effects of both input LoRAs
+
+#### Behavior
+
+- Adds the tensor values of matching keys from both LoRAs together
+- Preserves all keys from the first LoRA (loraA)
+- Adds tensor values from the second LoRA (loraB) to matching keys in loraA
+- If a key exists in loraB but not in loraA, adds that key to the result
+- Creates a new LoRA that contains the combined strengths of both input LoRAs
+- Useful for combining complementary LoRAs or layering different effects
+
 ## Key Features
 
 - **Separation of Concerns**: Load, modify, and apply LoRAs in separate steps for maximum flexibility
