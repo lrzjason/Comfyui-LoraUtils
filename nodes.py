@@ -7,7 +7,10 @@ import re
 import os
 import time
 from safetensors.torch import save_file
+import json
 
+import torch
+import torch.nn.functional as F
 
 class LoadLoraOnly:
     def __init__(self):
@@ -252,6 +255,148 @@ class LoraStatViewer:
         
         return (output_string,)
 
+class CreateLoraMappingJson:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "loraA": ("LORA", {"tooltip": "Lora A as a source for the mapping."}),
+                "loraB": ("LORA", {"tooltip": "Lora B as a target for the mapping."}),
+            }
+        }
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("mapping_json",)
+    FUNCTION = "create_mapping_json"
+    CATEGORY = "LoraUtils"
+    DESCRIPTION = "Create a mapping json that maps keys from LoRA A to LoRA B for conversion purposes by identifying common layer structures."
+
+    def create_mapping_json(self, loraA, loraB):
+        
+        # Create a mapping from loraA keys to loraB keys
+        mapping_json = {}
+        
+        # Get all keys from both LoRAs
+        keysA = list(loraA.keys())
+        keysB = list(loraB.keys())
+        
+        # First, map common keys directly
+        for key in keysA:
+            if key in keysB:
+                mapping_json[key] = key
+        
+        # For keys that are not common, we need to find similar patterns
+        # Group keys by their core structure, ignoring different prefixes/suffixes
+        # Common LoRA patterns to look for:
+        # - transformer_blocks (diffusion models)
+        # - lora_up, lora_down
+        # - lora_A, lora_B
+        # - etc.
+        
+        # Create a function to extract the core layer structure from a key
+        def extract_core_structure(key):
+            # Look for transformer blocks pattern
+            transformer_match = re.search(r'transformer_blocks\.(\d+)', key)
+            if transformer_match:
+                block_num = transformer_match.group(1)
+                # Extract parts of the key around the transformer block
+                # This helps match keys like "input_blocks.1.1.transformer_blocks.0.attn1.to_q.lora_up.weight" 
+                # with "diffusion_model_transformer_blocks_0_attn_to_q.lora_linear_layer.weight"
+                base_pattern = f"transformer_blocks.{block_num}"
+                return base_pattern
+            
+            # Look for time or timestep related patterns
+            time_match = re.search(r'(time_emb|time_mix)', key, re.IGNORECASE)
+            if time_match:
+                return time_match.group(0)
+            
+            # Look for input/output/middle blocks in UNet
+            block_match = re.search(r'(input|output|middle)_blocks', key)
+            if block_match:
+                # For blocks with numbers like input_blocks.1.1
+                block_pattern = re.search(r'(input|output|middle)_blocks\.(\d+)(\.(\d+))?', key)
+                if block_pattern:
+                    main_block = block_pattern.group(1)
+                    block_num = block_pattern.group(2)
+                    sub_block = block_pattern.group(4) if block_pattern.group(4) else ""
+                    if sub_block:
+                        return f"{main_block}_blocks.{block_num}.{sub_block}"
+                    else:
+                        return f"{main_block}_blocks.{block_num}"
+            
+            # Look for diffusion_model patterns
+            diff_match = re.search(r'diffusion_model', key)
+            if diff_match:
+                # Extract more specific structure for diffusion model
+                layer_match = re.search(r'diffusion_model\.([^\.]+\.(\d+))', key)
+                if layer_match:
+                    return f"diffusion_model.{layer_match.group(1)}"
+                
+            # If no specific pattern found, return a simplified version
+            # Remove common LoRA specific parts to find core structure
+            simplified = re.sub(r'\.lora_(up|down|A|B)(\.weight|\.bias)?', '', key)
+            simplified = re.sub(r'_lora(_(up|down|A|B))?(_weight|_bias)?', '', simplified)
+            
+            return simplified
+        
+        # Group keys by their core structure
+        structure_map_A = {}
+        structure_map_B = {}
+        
+        for key in keysA:
+            if key not in mapping_json:  # Skip already mapped keys
+                core_structure = extract_core_structure(key)
+                if core_structure not in structure_map_A:
+                    structure_map_A[core_structure] = []
+                structure_map_A[core_structure].append(key)
+        
+        for key in keysB:
+            # We only care about unmapped keys in B for potential mapping
+            core_structure = extract_core_structure(key)
+            if core_structure not in structure_map_B:
+                structure_map_B[core_structure] = []
+            structure_map_B[core_structure].append(key)
+        
+        # Now try to map keys with the same core structure
+        for structure in structure_map_A:
+            if structure in structure_map_B:
+                keys_a_list = structure_map_A[structure]
+                keys_b_list = structure_map_B[structure]
+                
+                # Map keys with similar patterns but potentially different suffixes/prefixes
+                min_len = min(len(keys_a_list), len(keys_b_list))
+                for i in range(min_len):
+                    mapping_json[keys_a_list[i]] = keys_b_list[i]
+        
+        # Convert mapping to JSON string with indentation
+        mapping_json_string = json.dumps(mapping_json, indent=4)
+        
+        return (mapping_json_string,)
+
+class ConvertLoraKeys:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "lora": ("LORA", {"tooltip": "Lora to be converted."}),
+                "mapping_json": ("STRING", {"tooltip": "Mapping json which contains current lora keys and the values as target keys."}),
+            }
+        }
+        
+    RETURN_TYPES = ("LORA",)
+    RETURN_NAMES = ("converted_lora",)
+    FUNCTION = "convert_lora"
+    CATEGORY = "LoraUtils"
+    DESCRIPTION = "Convert lora keys to match the new naming convention."
+    def convert_lora(self, lora, mapping_json):
+        # convert mapping_json string to dict
+        mapping_dict = json.loads(mapping_json)
+
+        new_lora = {}
+        for key, value in mapping_dict.items():
+            print(f"From key: {key}, To target key: {value}")
+            new_lora[value] = lora[key].clone()
+            
+        return (new_lora,)
 
 class LoraAdd:
     @classmethod
@@ -260,6 +405,9 @@ class LoraAdd:
             "required": {
                 "loraA": ("LORA", {"tooltip": "Lora A to add."}),
                 "loraB": ("LORA", {"tooltip": "Lora B to add."}),
+                "alpha_a": ("FLOAT", {"default": 1.0, "min": -10.0, "max": 10.0, "step": 0.01, "tooltip": "Weight for LoRA A."}),
+                "alpha_b": ("FLOAT", {"default": 1.0, "min": -10.0, "max": 10.0, "step": 0.01, "tooltip": "Weight for LoRA B."}),
+                "target_rank": ("INT", {"default": -1, "min": -1, "max": 1024, "step": 1, "tooltip": "Target rank for merged LoRA. Use -1 to automatically determine based on minimum rank."}),
             }
         }
 
@@ -267,26 +415,135 @@ class LoraAdd:
     RETURN_NAMES = ("merged_lora",)
     FUNCTION = "add_lora"
     CATEGORY = "LoraUtils"
-    DESCRIPTION = "Combine two LoRAs by adding their tensor values together. This node adds matching keys from both LoRAs, and includes all unique keys from both LoRAs in the result."
+    DESCRIPTION = "Combine two LoRAs with different ranks via SVD-based rank alignment. This allows merging LoRAs with different ranks."
 
-    def add_lora(self, loraA, loraB):
-        # Create a copy of loraA to avoid modifying the original
-        merged_lora = {}
+    def extract_alpha(self, lora_sd: dict, down_key: str) -> float:
+        """
+        Try to extract lora_alpha from common naming patterns.
+        Assume alpha is stored as:
+          - `{prefix}.alpha` (kohya)
+          - not stored → use rank (diffusers default: alpha = rank)
+        """
+        # Common patterns
+        base_key = re.sub(r"\.lora_down\.weight$", "", down_key)
+        alpha_key = f"{base_key}.alpha"
         
-        # Add all keys from loraA
-        for key in loraA.keys():
-            merged_lora[key] = loraA[key].clone()  # Clone to avoid modifying original
+        if alpha_key in lora_sd:
+            alpha = lora_sd[alpha_key]
+            if isinstance(alpha, torch.Tensor):
+                alpha = alpha.item()
+            return float(alpha)
+        else:
+            # Fallback: alpha = rank (diffusers default behavior)
+            rank = lora_sd[down_key].shape[0]
+            return float(rank)
+
+    def absorb_alpha(self, lora_sd: dict):
+        """Absorb lora_alpha / rank into lora_down (or up). Modifies in-place."""
+        down_keys = [k for k in lora_sd if ".lora_down." in k and k.endswith(".weight")]
+        for down_key in down_keys:
+            up_key = down_key.replace(".lora_down.", ".lora_up.")
+            if up_key not in lora_sd:
+                continue
+            alpha = self.extract_alpha(lora_sd, down_key)
+            rank = lora_sd[down_key].shape[0]
+            scale = alpha / rank
+            # Absorb into lora_down (arbitrary choice; up would also work)
+            lora_sd[down_key] = lora_sd[down_key] * scale
+        return lora_sd
+
+    def low_rank_approximation(self, lora_down: torch.Tensor, lora_up: torch.Tensor, target_rank: int):
+        r, in_f = lora_down.shape
+        out_f, _ = lora_up.shape
+        k = min(target_rank, r, in_f, out_f)
         
-        # Add all keys from loraB, adding to existing keys or creating new ones
-        for key in loraB.keys():
-            if key in merged_lora:
-                # If key exists in both, add the tensors together
-                merged_lora[key] = merged_lora[key] + loraB[key]
-            else:
-                # If key only exists in loraB, add it to the merged result
-                merged_lora[key] = loraB[key].clone()  # Clone to avoid modifying original
+        if k == r:
+            return lora_down, lora_up
+
+        # For typical LoRA (r <= 256), construct ΔW directly
+        if r <= 256:
+            delta_w = lora_up @ lora_down  # (out, in)
+            U, S, Vt = torch.linalg.svd(delta_w, full_matrices=False)
+            U_k = U[:, :k]
+            S_k = S[:k]
+            Vt_k = Vt[:k, :]
+            
+            sqrt_S = torch.sqrt(S_k).unsqueeze(1)  # (k, 1)
+            new_up   = U_k * sqrt_S.T               # (out, k)
+            new_down = sqrt_S * Vt_k                # (k, in)
+            return new_down, new_up
+        else:
+            # Use randomized SVD for large r (rare)
+            # For this implementation, we'll use the basic SVD approach
+            delta_w = lora_up @ lora_down  # (out, in)
+            U, S, Vt = torch.linalg.svd(delta_w, full_matrices=False)
+            U_k = U[:, :k]
+            S_k = S[:k]
+            Vt_k = Vt[:k, :]
+            
+            sqrt_S = torch.sqrt(S_k).unsqueeze(1)  # (k, 1)
+            new_up   = U_k * sqrt_S.T               # (out, k)
+            new_down = sqrt_S * Vt_k                # (k, in)
+            return new_down, new_up
+
+    def add_lora(self, loraA, loraB, alpha_a=1.0, alpha_b=1.0, target_rank=-1):
+        # Create copies to avoid modifying originals
+        loraA_copy = {k: v.clone() for k, v in loraA.items()}
+        loraB_copy = {k: v.clone() for k, v in loraB.items()}
         
-        return (merged_lora, )
+        # Absorb alpha scaling
+        loraA_copy = self.absorb_alpha(loraA_copy)
+        loraB_copy = self.absorb_alpha(loraB_copy)
+        
+        # Find all down keys to identify LoRA layers
+        down_keys_a = {k for k in loraA_copy if ".lora_down." in k and k.endswith(".weight")}
+        down_keys_b = {k for k in loraB_copy if ".lora_down." in k and k.endswith(".weight")}
+        common_down_keys = down_keys_a & down_keys_b
+
+        # Process LoRA layers with rank alignment
+        for down_key in common_down_keys:
+            up_key = down_key.replace(".lora_down.", ".lora_up.")
+            if up_key not in loraA_copy or up_key not in loraB_copy:
+                continue
+
+            down_a, up_a = loraA_copy[down_key], loraA_copy[up_key]
+            down_b, up_b = loraB_copy[down_key], loraB_copy[up_key]
+
+            # Determine target rank
+            r_a, r_b = down_a.shape[0], down_b.shape[0]
+            k = target_rank if target_rank != -1 else min(r_a, r_b)
+
+            # Align A to target rank
+            if r_a != k:
+                down_a, up_a = self.low_rank_approximation(down_a, up_a, k)
+                loraA_copy[down_key] = down_a
+                loraA_copy[up_key] = up_a
+
+            # Align B to target rank
+            if r_b != k:
+                down_b, up_b = self.low_rank_approximation(down_b, up_b, k)
+                loraB_copy[down_key] = down_b
+                loraB_copy[up_key] = up_b
+
+            # Fuse the aligned tensors
+            fused_down = alpha_a * down_a + alpha_b * down_b
+            fused_up   = alpha_a * up_a   + alpha_b * up_b
+
+            loraA_copy[down_key] = fused_down
+            loraA_copy[up_key]   = fused_up
+
+            # Preserve alpha if exists (set to target rank, conventional)
+            base_key = re.sub(r"\.lora_down\.weight$", "", down_key)
+            alpha_key = f"{base_key}.alpha"
+            if alpha_key in loraA or alpha_key in loraB:
+                loraA_copy[alpha_key] = torch.tensor(float(k))  # common convention
+
+        # Now add remaining non-LoRA keys normally
+        for key in loraB_copy.keys():
+            if key not in loraA_copy:
+                loraA_copy[key] = loraB_copy[key]
+
+        return (loraA_copy, )
 
 class SaveLora:
     def __init__(self):
@@ -337,6 +594,8 @@ NODE_CLASS_MAPPINGS = {
     "LoraStatViewer": LoraStatViewer,
     "SaveLora": SaveLora,
     "LoraAdd": LoraAdd,
+    "ConvertLoraKeys": ConvertLoraKeys,
+    "CreateLoraMappingJson": CreateLoraMappingJson,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -346,4 +605,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "LoraStatViewer": "LoRA Stat Viewer",
     "SaveLora": "Save LoRA",
     "LoraAdd": "Lora Add",
+    "ConvertLoraKeys": "Convert Lora Keys",
+    "CreateLoraMappingJson": "Create Lora Mapping Json",
 }

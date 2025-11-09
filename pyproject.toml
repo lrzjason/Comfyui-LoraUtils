@@ -1,7 +1,7 @@
 [project]
 name = "lorautils"
 description = "A collection of utility nodes for lora operations in ComfyUI."
-version = "1.0.6"
+version = "1.0.7"
 license = {file = "LICENSE"}
 
 [project.urls]
