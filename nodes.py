@@ -575,15 +575,30 @@ class SaveLora:
         
         # Create the full path
         full_output_path = os.path.join(output_dir, filename)
-        
         # Add .safetensors extension if not present
         if not full_output_path.lower().endswith('.safetensors'):
             full_output_path += '.safetensors'
-        
-        # Save the lora state dict as safetensors (this will overwrite if file exists)
-        save_file(lora, full_output_path)
-        
-        print(f"LoRA saved to: {full_output_path}")
+
+        # Filter out layers where all values are zero
+        filtered_lora = {}
+        zero_layers = []
+        for key, tensor in lora.items():
+            if isinstance(tensor, torch.Tensor):
+                if not torch.allclose(tensor, torch.zeros_like(tensor), atol=1e-12):
+                    filtered_lora[key] = tensor
+                else:
+                    zero_layers.append(key)
+            else:
+                # Skip non-tensor items or optionally warn/log
+                filtered_lora[key] = tensor  # or skip if undesired
+
+        if zero_layers:
+            print(f"[SaveLora] Removed {len(zero_layers)} zero-only layers: {zero_layers}")
+
+        # Save the filtered lora state dict
+        save_file(filtered_lora, full_output_path)
+
+        print(f"LoRA saved to: {full_output_path} (original {len(lora)} layers → {len(filtered_lora)} layers)")
         return {}
 
 
