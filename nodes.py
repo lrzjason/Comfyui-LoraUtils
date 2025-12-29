@@ -545,6 +545,40 @@ class LoraAdd:
 
         return (loraA_copy, )
 
+
+class LoraSimpleAdd:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "loraA": ("LORA", {"tooltip": "First LoRA to add (base LoRA)."}),
+                "loraB": ("LORA", {"tooltip": "Second LoRA to add (will be added to base LoRA)."}),
+                "alpha_a": ("FLOAT", {"default": 1.0, "min": -10.0, "max": 10.0, "step": 0.01, "tooltip": "Weight for LoRA A (multiplier for first LoRA)."}),
+                "alpha_b": ("FLOAT", {"default": 1.0, "min": -10.0, "max": 10.0, "step": 0.01, "tooltip": "Weight for LoRA B (multiplier for second LoRA)."}),
+            }
+        }
+
+    RETURN_TYPES = ("LORA",)
+    RETURN_NAMES = ("combined_lora",)
+    FUNCTION = "simple_add_lora"
+    CATEGORY = "LoraUtils"
+    DESCRIPTION = "Combine two LoRAs with the same ranks by adding their values together. Simple implementation that directly adds tensors with specified weights."
+
+    def simple_add_lora(self, loraA, loraB, alpha_a=1.0, alpha_b=1.0):
+        # Create a copy of loraA to avoid modifying the original
+        combined_lora = {k: v.clone() for k, v in loraA.items()}
+        
+        # Add tensors from loraB to the combined_lora
+        for key, tensor in loraB.items():
+            if key in combined_lora:
+                # If both LoRAs have the same key, add them together with their respective weights
+                combined_lora[key] = alpha_a * combined_lora[key] + alpha_b * tensor
+            else:
+                # If the key is only in loraB, add it with its weight
+                combined_lora[key] = alpha_b * tensor
+        
+        return (combined_lora,)
+
 class SaveLora:
     def __init__(self):
         self.output_dir = folder_paths.get_output_directory()
@@ -609,6 +643,7 @@ NODE_CLASS_MAPPINGS = {
     "LoraStatViewer": LoraStatViewer,
     "SaveLora": SaveLora,
     "LoraAdd": LoraAdd,
+    "LoraSimpleAdd": LoraSimpleAdd,
     "ConvertLoraKeys": ConvertLoraKeys,
     "CreateLoraMappingJson": CreateLoraMappingJson,
 }
@@ -620,6 +655,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "LoraStatViewer": "LoRA Stat Viewer",
     "SaveLora": "Save LoRA",
     "LoraAdd": "Lora Add",
+    "LoraSimpleAdd": "Lora Simple Add",
     "ConvertLoraKeys": "Convert Lora Keys",
     "CreateLoraMappingJson": "Create Lora Mapping Json",
 }
