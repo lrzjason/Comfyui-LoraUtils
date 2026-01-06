@@ -592,6 +592,7 @@ class SaveLora:
             },
             "optional": {
                 "output_dir": ("STRING", {"default": folder_paths.get_output_directory(), "tooltip": "Directory to save the LoRA to. Defaults to ComfyUI output directory if not provided."}),
+                "remove_zero_layers": ("BOOLEAN", {"default": False, "tooltip": "Remove layers where all values are zero before saving."}),
             }
         }
 
@@ -600,7 +601,7 @@ class SaveLora:
     OUTPUT_NODE = True
     CATEGORY = "LoraUtils"
 
-    def save_lora(self, lora, filename, output_dir=None):
+    def save_lora(self, lora, filename, remove_zero_layers=False, output_dir=None):
         if output_dir is None:
             output_dir = self.output_dir
             
@@ -613,21 +614,24 @@ class SaveLora:
         if not full_output_path.lower().endswith('.safetensors'):
             full_output_path += '.safetensors'
 
-        # Filter out layers where all values are zero
-        filtered_lora = {}
-        zero_layers = []
-        for key, tensor in lora.items():
-            if isinstance(tensor, torch.Tensor):
-                if not torch.allclose(tensor, torch.zeros_like(tensor), atol=1e-12):
-                    filtered_lora[key] = tensor
+        if remove_zero_layers:
+            # Filter out layers where all values are zero
+            filtered_lora = {}
+            zero_layers = []
+            for key, tensor in lora.items():
+                if isinstance(tensor, torch.Tensor):
+                    if not torch.allclose(tensor, torch.zeros_like(tensor), atol=1e-12):
+                        filtered_lora[key] = tensor
+                    else:
+                        zero_layers.append(key)
                 else:
-                    zero_layers.append(key)
-            else:
-                # Skip non-tensor items or optionally warn/log
-                filtered_lora[key] = tensor  # or skip if undesired
+                    # Skip non-tensor items or optionally warn/log
+                    filtered_lora[key] = tensor  # or skip if undesired
 
-        if zero_layers:
-            print(f"[SaveLora] Removed {len(zero_layers)} zero-only layers: {zero_layers}")
+            if zero_layers:
+                print(f"[SaveLora] Removed {len(zero_layers)} zero-only layers: {zero_layers}")
+        else:
+            filtered_lora = lora
 
         # Save the filtered lora state dict
         save_file(filtered_lora, full_output_path)
