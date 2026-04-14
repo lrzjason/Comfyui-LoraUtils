@@ -21,6 +21,10 @@ class LoadLoraOnly:
         return {
             "required": {
                 "lora_name": (folder_paths.get_filename_list("loras"), {"tooltip": "The name of the LoRA file to load."}),
+                "strength_model": ("FLOAT", {"default": 1.0, "min": -5.0, "max": 5.0, "step": 0.01, "tooltip": "Strength to scale the LoRA weights. Can be negative."}),
+            },
+            "optional": {
+                "lora": ("LORA", {"tooltip": "Optional existing LoRA to modify with the loaded LoRA."}),
             }
         }
 
@@ -29,24 +33,53 @@ class LoadLoraOnly:
     FUNCTION = "load_lora"
 
     CATEGORY = "LoraUtils"
-    DESCRIPTION = "Load a LoRA file without applying it to any models. Use with MergeLoraToModel or other nodes to apply the LoRA later."
+    DESCRIPTION = "Load a LoRA file and optionally scale it by a strength value. Can also merge with an optional existing LoRA."
 
-    def load_lora(self, lora_name):
+    def load_lora(self, lora_name, strength_model, lora=None):
         lora_path = folder_paths.get_full_path_or_raise("loras", lora_name)
-        lora = None
+        loaded_lora = None
         if self.loaded_lora is not None:
             if self.loaded_lora[0] == lora_path:
-                lora = self.loaded_lora[1]
+                loaded_lora = self.loaded_lora[1]
             else:
                 self.loaded_lora = None
 
-        if lora is None:
-            lora = comfy.utils.load_torch_file(lora_path, safe_load=True)
-            self.loaded_lora = (lora_path, lora)
+        if loaded_lora is None:
+            loaded_lora = comfy.utils.load_torch_file(lora_path, safe_load=True)
+            self.loaded_lora = (lora_path, loaded_lora)
 
-        return (lora,)
+        # Apply strength scaling
+        if strength_model != 1.0:
+            modified_lora = {}
+            for key, value in loaded_lora.items():
+                if isinstance(value, torch.Tensor):
+                    modified_lora[key] = value * strength_model
+                else:
+                    modified_lora[key] = value
+            loaded_lora = modified_lora
 
+        # Merge with optional existing LoRA if provided
+        if lora is not None:
+            merged_lora = {}
+            # Add all keys from the passed lora
+            for key, value in lora.items():
+                if isinstance(value, torch.Tensor):
+                    merged_lora[key] = value.clone()
+                else:
+                    merged_lora[key] = value
+            # Add/override with keys from loaded lora
+            for key, value in loaded_lora.items():
+                if key in merged_lora:
+                    if isinstance(value, torch.Tensor) and isinstance(merged_lora[key], torch.Tensor):
+                        merged_lora[key] = merged_lora[key] + value
+                    else:
+                        merged_lora[key] = value
+                else:
+                    merged_lora[key] = value
+            return (merged_lora,)
 
+        return (loaded_lora,)
+        
 class LoraLayersOperation:
     @classmethod
     def INPUT_TYPES(s):
